@@ -1,0 +1,8 @@
+{
+  "name": "Copy of REDECOL E.S.P - Control Operativo GPS",
+  "description": "Sistema móvil para la supervisión y reporte de rutas de aprovechamiento, cumpliendo con el Decreto 1381 de 2024.",
+  "requestFramePermissions": [
+    "geolocation",
+    "camera"
+  ]
+}
