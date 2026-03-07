@@ -1,0 +1,141 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>REDECOL – Seguimiento en Vivo</title>
+
+<script src="https://cdn.tailwindcss.com"></script>
+
+<!-- TU GOOGLE MAPS API REAL -->
+<script src="https://maps.googleapis.com/maps/api/js?key=AIzaSyDCsqpm4RLnyq1C40zA0zHsDbASCWSJY2I"></script>
+
+</head>
+
+<body class="bg-gray-100 p-6">
+
+<div class="max-w-6xl mx-auto space-y-6">
+
+<header class="bg-white p-6 rounded-2xl shadow">
+<h1 class="text-2xl font-bold">REDECOL E.S.P – Seguimiento GPS EN VIVO</h1>
+<p class="text-sm text-gray-500">Panel Operativo</p>
+</header>
+
+<section class="bg-white p-6 rounded-2xl shadow space-y-4">
+<button onclick="iniciarGPS()" class="bg-green-600 text-white px-4 py-2 rounded">
+Iniciar GPS (Reciclador)
+</button>
+
+<button onclick="detenerGPS()" class="bg-red-600 text-white px-4 py-2 rounded">
+Detener GPS
+</button>
+</section>
+
+<section class="bg-white p-6 rounded-2xl shadow">
+<div id="map" class="w-full h-[500px] rounded-xl"></div>
+</section>
+
+</div>
+
+<script type="module">
+
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
+import { getDatabase, ref, onValue } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-database.js";
+
+const firebaseConfig = {
+  apiKey: "AIzaSyCF1dsKv-7CgLAxymbTN5_DpXsYNnshzvQ",
+  authDomain: "control-operativo-gps.firebaseapp.com",
+  databaseURL: "https://control-operativo-gps-default-rtdb.firebaseio.com",
+  projectId: "control-operativo-gps",
+  storageBucket: "control-operativo-gps.firebasestorage.app",
+  messagingSenderId: "430228575430",
+  appId: "1:430228575430:web:d498fed633087a059fb3c7"
+};
+
+const app = initializeApp(firebaseConfig);
+const database = getDatabase(app);
+
+let map;
+let polyline;
+let markers = [];
+
+window.initMap = function() {
+
+  map = new google.maps.Map(document.getElementById("map"), {
+    center: { lat: 7.0653, lng: -73.8547 },
+    zoom: 14
+  });
+
+  escucharRutas();
+};
+
+window.onload = initMap;
+
+function escucharRutas() {
+
+  const rutasRef = ref(database, "rutas");
+
+  onValue(rutasRef, (snapshot) => {
+
+    const data = snapshot.val();
+    if (!data) return;
+
+    const puntos = [];
+
+    Object.values(data).forEach(cedula => {
+      Object.values(cedula).forEach(ruta => {
+        Object.values(ruta).forEach(punto => {
+          puntos.push({
+            lat: punto.latitud,
+            lng: punto.longitud
+          });
+        });
+      });
+    });
+
+    dibujarRecorrido(puntos);
+
+  });
+
+}
+
+function dibujarRecorrido(puntos) {
+
+  if (polyline) polyline.setMap(null);
+  markers.forEach(m => m.setMap(null));
+  markers = [];
+
+  if (puntos.length === 0) return;
+
+  polyline = new google.maps.Polyline({
+    path: puntos,
+    geodesic: true,
+    strokeColor: "#16a34a",
+    strokeOpacity: 1.0,
+    strokeWeight: 4,
+  });
+
+  polyline.setMap(map);
+
+  const inicio = new google.maps.Marker({
+    position: puntos[0],
+    map: map,
+    label: "Inicio"
+  });
+
+  const fin = new google.maps.Marker({
+    position: puntos[puntos.length - 1],
+    map: map,
+    label: "Actual"
+  });
+
+  markers.push(inicio, fin);
+
+  map.setCenter(puntos[puntos.length - 1]);
+}
+
+</script>
+
+
+</body>
+</html>
