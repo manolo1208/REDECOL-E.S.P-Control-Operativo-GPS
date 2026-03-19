@@ -1,0 +1,1098 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>REDECOL E.S.P - Panel de Control GPS</title>
+<meta name="description" content="Sistema de Supervisión y Control Operativo GPS en Tiempo Real — REDECOL E.S.P">
+<meta name="theme-color" content="#14532d">
+<meta name="application-name" content="REDECOL GPS">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="REDECOL GPS">
+<link rel="manifest" href="manifest.json">
+<script src="https://cdn.tailwindcss.com"></script>
+<script src="https://maps.googleapis.com/maps/api/js?key=AIzaSyDCsqpm4RLnyq1C40zA0zHsDbASCWSJY2I"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<style>
+  .tab-content { display: none; }
+  .tab-content.active { display: block; }
+  .stat-card {
+    background: linear-gradient(135deg, #E8F5E9 0%, #C8E6C9 100%);
+  }
+</style>
+</head>
+<body class="bg-gradient-to-br from-indigo-500 via-purple-500 to-pink-500 min-h-screen p-4">
+
+<div class="max-w-7xl mx-auto space-y-6">
+
+  <!-- HEADER -->
+  <header class="bg-white p-6 rounded-2xl shadow-2xl">
+    <div class="flex items-center justify-between">
+      <div>
+        <h1 class="text-3xl font-bold text-green-800">🌱 REDECOL E.S.P</h1>
+        <p class="text-sm text-gray-600">Sistema de Supervisión y Control Operativo GPS en Tiempo Real</p>
+        <p class="text-xs text-gray-400 mt-1">Decreto MVCT 1381 de 2024</p>
+      </div>
+      <div class="text-right">
+        <div id="estadoConexion" class="text-sm font-semibold">
+          🟢 Conectado a Firebase
+        </div>
+        <div class="text-xs text-gray-500" id="ultimaActualizacion"></div>
+      </div>
+    </div>
+  </header>
+
+  <!-- TABS -->
+  <div class="bg-white rounded-2xl shadow-2xl overflow-hidden">
+    <div class="flex border-b border-gray-200 overflow-x-auto">
+      <button onclick="cambiarTab('dashboard')" class="tab-btn px-6 py-4 font-semibold text-gray-700 hover:bg-green-50 border-b-4 border-green-600" id="tab-dashboard">
+        📊 Dashboard
+      </button>
+      <button onclick="cambiarTab('seguimiento')" class="tab-btn px-6 py-4 font-semibold text-gray-700 hover:bg-green-50 border-b-4 border-transparent" id="tab-seguimiento">
+        📡 Seguimiento en Vivo
+      </button>
+      <button onclick="cambiarTab('rutas')" class="tab-btn px-6 py-4 font-semibold text-gray-700 hover:bg-green-50 border-b-4 border-transparent" id="tab-rutas">
+        📋 Historial de Rutas
+      </button>
+      <button onclick="cambiarTab('analisis')" class="tab-btn px-6 py-4 font-semibold text-gray-700 hover:bg-green-50 border-b-4 border-transparent" id="tab-analisis">
+        📈 Análisis y Reportes
+      </button>
+      <button onclick="cambiarTab('exportar')" class="tab-btn px-6 py-4 font-semibold text-gray-700 hover:bg-green-50 border-b-4 border-transparent" id="tab-exportar">
+        📥 Exportar Datos
+      </button>
+    </div>
+
+    <!-- TAB 1: DASHBOARD -->
+    <div id="content-dashboard" class="tab-content active p-6">
+      <h2 class="text-2xl font-bold text-green-800 mb-6">Dashboard General</h2>
+      
+      <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+        <div class="stat-card p-6 rounded-xl shadow-lg">
+          <div class="text-4xl font-bold text-green-900" id="totalRecicladores">0</div>
+          <div class="text-sm text-green-700 font-semibold mt-2">Recicladores Activos</div>
+        </div>
+        <div class="stat-card p-6 rounded-xl shadow-lg">
+          <div class="text-4xl font-bold text-green-900" id="totalRutas">0</div>
+          <div class="text-sm text-green-700 font-semibold mt-2">Rutas Registradas</div>
+        </div>
+        <div class="stat-card p-6 rounded-xl shadow-lg">
+          <div class="text-4xl font-bold text-green-900" id="totalPuntosGPS">0</div>
+          <div class="text-sm text-green-700 font-semibold mt-2">Puntos GPS Totales</div>
+        </div>
+        <div class="stat-card p-6 rounded-xl shadow-lg">
+          <div class="text-4xl font-bold text-green-900" id="kmTotales">0</div>
+          <div class="text-sm text-green-700 font-semibold mt-2">Kilómetros Totales</div>
+        </div>
+      </div>
+
+      <div class="bg-white p-6 rounded-xl border border-gray-200">
+        <h3 class="text-xl font-bold text-gray-800 mb-4">🚴 Recicladores en Línea</h3>
+        <div id="listaRecicladores" class="space-y-3">
+          <p class="text-gray-500">Esperando datos...</p>
+        </div>
+      </div>
+    </div>
+
+    <!-- TAB 2: SEGUIMIENTO EN VIVO -->
+    <div id="content-seguimiento" class="tab-content p-6">
+      <h2 class="text-2xl font-bold text-green-800 mb-4">Seguimiento GPS en Tiempo Real</h2>
+      
+      <div class="bg-gray-50 p-4 rounded-xl mb-4 flex justify-between items-center">
+        <div>
+          <span class="text-sm font-semibold">Estado del GPS:</span>
+          <span id="estadoGPS" class="ml-2 px-3 py-1 bg-green-100 text-green-800 rounded-full text-sm font-bold">🟢 Activo</span>
+        </div>
+        <div class="text-sm text-gray-600" id="puntosCapturados">Puntos capturados: 0</div>
+      </div>
+
+      <div id="map" class="w-full h-[600px] rounded-xl shadow-lg mb-4"></div>
+
+      <div class="grid grid-cols-2 gap-4">
+        <div class="bg-blue-50 p-4 rounded-xl">
+          <div class="text-2xl font-bold text-blue-900" id="velocidadActual">0 km/h</div>
+          <div class="text-sm text-blue-700">Velocidad Promedio</div>
+        </div>
+        <div class="bg-purple-50 p-4 rounded-xl">
+          <div class="text-2xl font-bold text-purple-900" id="distanciaActual">0 km</div>
+          <div class="text-sm text-purple-700">Distancia Recorrida</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- TAB 3: HISTORIAL DE RUTAS -->
+    <div id="content-rutas" class="tab-content p-6">
+      <h2 class="text-2xl font-bold text-green-800 mb-6">Historial de Rutas Guardadas</h2>
+      
+      <div class="mb-4 flex gap-4">
+        <input type="date" id="filtroFechaInicio" class="px-4 py-2 border border-gray-300 rounded-lg">
+        <input type="date" id="filtroFechaFin" class="px-4 py-2 border border-gray-300 rounded-lg">
+        <button onclick="filtrarRutas()" class="px-6 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700">
+          🔍 Filtrar
+        </button>
+        <button onclick="cargarTodasLasRutas()" class="px-6 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700">
+          🔄 Ver Todas
+        </button>
+      </div>
+
+      <div id="tablaRutas" class="overflow-x-auto">
+        <table class="w-full bg-white rounded-lg overflow-hidden">
+          <thead class="bg-green-600 text-white">
+            <tr>
+              <th class="px-4 py-3 text-left">Reciclador</th>
+              <th class="px-4 py-3 text-left">Cédula</th>
+              <th class="px-4 py-3 text-left">Fecha</th>
+              <th class="px-4 py-3 text-left">Puntos GPS</th>
+              <th class="px-4 py-3 text-left">Distancia</th>
+              <th class="px-4 py-3 text-left">Acciones</th>
+            </tr>
+          </thead>
+          <tbody id="tablaRutasBody">
+            <tr><td colspan="6" class="text-center py-8 text-gray-500">Cargando rutas...</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- TAB 4: ANÁLISIS Y REPORTES -->
+    <div id="content-analisis" class="tab-content p-6">
+      <h2 class="text-2xl font-bold text-green-800 mb-6">Análisis y Generación de Reportes</h2>
+
+      <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <!-- Seleccionar Ruta -->
+        <div class="bg-white p-6 rounded-xl border border-gray-200">
+          <h3 class="text-xl font-bold text-gray-800 mb-4">📄 Generar Reporte Individual</h3>
+          <select id="selectRutaReporte" class="w-full px-4 py-3 border border-gray-300 rounded-lg mb-4">
+            <option value="">Selecciona una ruta...</option>
+          </select>
+          <button onclick="generarReportePDF()" class="w-full px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-semibold">
+            📥 Descargar Reporte PDF
+          </button>
+        </div>
+
+        <!-- Reporte Consolidado -->
+        <div class="bg-white p-6 rounded-xl border border-gray-200">
+          <h3 class="text-xl font-bold text-gray-800 mb-4">📊 Reporte Consolidado</h3>
+          <p class="text-sm text-gray-600 mb-4">Genera un reporte con todas las rutas del período seleccionado</p>
+          <button onclick="generarReporteConsolidado()" class="w-full px-6 py-3 bg-purple-600 text-white rounded-lg hover:bg-purple-700 font-semibold">
+            📋 Generar Reporte Consolidado
+          </button>
+        </div>
+      </div>
+
+      <!-- Estadísticas por Reciclador -->
+      <div class="bg-white p-6 rounded-xl border border-gray-200 mt-6">
+        <h3 class="text-xl font-bold text-gray-800 mb-4">👥 Estadísticas por Reciclador</h3>
+        <div id="estadisticasRecicladores"></div>
+      </div>
+    </div>
+
+    <!-- TAB 5: EXPORTAR / IMPORTAR DATOS -->
+    <div id="content-exportar" class="tab-content p-6">
+      <h2 class="text-2xl font-bold text-green-800 mb-6">Exportar e Importar Datos</h2>
+
+      <!-- IMPORTAR CSV -->
+      <div class="bg-gradient-to-r from-blue-50 to-indigo-50 border-2 border-blue-200 p-6 rounded-xl mb-6">
+        <h3 class="text-xl font-bold text-blue-900 mb-2">📂 Importar CSV para Análisis</h3>
+        <p class="text-sm text-blue-700 mb-4">Sube un archivo CSV exportado por el sistema (columnas: Nombre, Cedula, Latitud, Longitud, Timestamp) para generar análisis completo y certificado PDF profesional.</p>
+
+        <div id="dropZone"
+          ondragover="event.preventDefault(); this.classList.add('border-blue-500','bg-blue-100')"
+          ondragleave="this.classList.remove('border-blue-500','bg-blue-100')"
+          ondrop="handleDrop(event)"
+          class="border-2 border-dashed border-blue-300 rounded-xl p-8 text-center cursor-pointer hover:bg-blue-50 transition-all mb-4"
+          onclick="document.getElementById('csvInput').click()">
+          <div class="text-4xl mb-2">📁</div>
+          <p class="text-blue-700 font-semibold">Arrastra tu CSV aquí o haz clic para seleccionar</p>
+          <p class="text-xs text-blue-500 mt-1">Formato: Nombre, Cedula, Latitud, Longitud, Timestamp</p>
+          <input type="file" id="csvInput" accept=".csv" class="hidden" onchange="importarCSV(this)">
+        </div>
+
+        <!-- Resultados del análisis -->
+        <div id="analisisCSV" class="hidden">
+          <div class="bg-white rounded-xl p-5 border border-blue-200 mb-4">
+            <h4 class="text-lg font-bold text-green-800 mb-4">📊 Resultados del Análisis</h4>
+            <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-5" id="statsCSV"></div>
+            <div id="detalleRutasCSV" class="space-y-3"></div>
+          </div>
+          <div class="flex gap-3 flex-wrap">
+            <button onclick="generarReporteCSVPDF()" class="px-6 py-3 bg-blue-700 text-white rounded-lg hover:bg-blue-800 font-semibold shadow">
+              🏅 Generar Certificado PDF Profesional
+            </button>
+            <button onclick="generarReporteConsolidadoCSV()" class="px-6 py-3 bg-purple-600 text-white rounded-lg hover:bg-purple-700 font-semibold shadow">
+              📋 Reporte Consolidado PDF
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <!-- EXPORTAR -->
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <div class="bg-white p-6 rounded-xl border border-gray-200">
+          <h3 class="text-xl font-bold text-gray-800 mb-4">💾 Exportar a JSON</h3>
+          <p class="text-sm text-gray-600 mb-4">Descarga todos los datos en formato JSON para respaldo o análisis externo</p>
+          <button onclick="exportarJSON()" class="w-full px-6 py-3 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 font-semibold">
+            📥 Descargar JSON
+          </button>
+        </div>
+
+        <div class="bg-white p-6 rounded-xl border border-gray-200">
+          <h3 class="text-xl font-bold text-gray-800 mb-4">📊 Exportar a CSV</h3>
+          <p class="text-sm text-gray-600 mb-4">Descarga los datos en formato CSV para Excel u otras herramientas</p>
+          <button onclick="exportarCSV()" class="w-full px-6 py-3 bg-green-600 text-white rounded-lg hover:bg-green-700 font-semibold">
+            📥 Descargar CSV
+          </button>
+        </div>
+      </div>
+
+      <div class="bg-yellow-50 border border-yellow-200 p-6 rounded-xl mt-6">
+        <h3 class="text-lg font-bold text-yellow-900 mb-2">⚠️ Zona de Peligro</h3>
+        <p class="text-sm text-yellow-800 mb-4">Esta acción eliminará TODOS los datos almacenados localmente</p>
+        <button onclick="limpiarDatosLocales()" class="px-6 py-3 bg-red-600 text-white rounded-lg hover:bg-red-700 font-semibold">
+          🗑️ Limpiar Datos Locales
+        </button>
+      </div>
+    </div>
+
+  </div>
+
+</div>
+
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
+import { getDatabase, ref, onValue, query, orderByChild } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-database.js";
+
+const firebaseConfig = {
+  apiKey: "AIzaSyCF1dsKv-7CgLAxymbTN5_DpXsYNnshzvQ",
+  authDomain: "control-operativo-gps.firebaseapp.com",
+  databaseURL: "https://control-operativo-gps-default-rtdb.firebaseio.com",
+  projectId: "control-operativo-gps",
+  storageBucket: "control-operativo-gps.firebasestorage.app",
+  messagingSenderId: "430228575430",
+  appId: "1:430228575430:web:d498fed633087a059fb3c7"
+};
+
+const app = initializeApp(firebaseConfig);
+const database = getDatabase(app);
+
+let map;
+let polyline;
+let markers = [];
+let datosGlobales = {
+  recicladores: new Set(),
+  rutas: [],
+  puntosTotal: 0,
+  kmTotal: 0
+};
+
+// =============================================
+// INICIALIZACIÓN
+// =============================================
+window.onload = function() {
+  inicializarMapa();
+  escucharDatosFirebase();
+  cargarDatosLocales();
+};
+
+function inicializarMapa() {
+  map = new google.maps.Map(document.getElementById("map"), {
+    center: { lat: 7.0653, lng: -73.8547 },
+    zoom: 14
+  });
+}
+
+// =============================================
+// FIREBASE - ESCUCHAR DATOS EN TIEMPO REAL
+// =============================================
+function escucharDatosFirebase() {
+  const rutasRef = ref(database, "rutas");
+  
+  onValue(rutasRef, (snapshot) => {
+    const data = snapshot.val();
+    document.getElementById('ultimaActualizacion').textContent = 
+      `Última actualización: ${new Date().toLocaleTimeString()}`;
+    
+    if (!data) {
+      console.log('No hay datos en Firebase');
+      return;
+    }
+
+    procesarDatosFirebase(data);
+    actualizarDashboard();
+    actualizarMapa();
+  });
+}
+
+function procesarDatosFirebase(data) {
+  datosGlobales.recicladores.clear();
+  datosGlobales.rutas = [];
+  datosGlobales.puntosTotal = 0;
+  let puntosParaMapa = [];
+
+  Object.keys(data).forEach(cedula => {
+    datosGlobales.recicladores.add(cedula);
+    
+    Object.keys(data[cedula]).forEach(rutaId => {
+      const puntosRuta = [];
+      const puntos = data[cedula][rutaId];
+      
+      Object.values(puntos).forEach(punto => {
+        puntosRuta.push({
+          lat: punto.latitud,
+          lng: punto.longitud,
+          timestamp: punto.timestamp
+        });
+        puntosParaMapa.push({
+          lat: punto.latitud,
+          lng: punto.longitud
+        });
+      });
+
+      if (puntosRuta.length > 0) {
+        const distancia = calcularDistanciaTotal(puntosRuta);
+        
+        datosGlobales.rutas.push({
+          cedula: cedula,
+          rutaId: rutaId,
+          puntos: puntosRuta,
+          distancia: distancia,
+          fecha: new Date(puntosRuta[0].timestamp || Date.now()).toLocaleDateString()
+        });
+        
+        datosGlobales.puntosTotal += puntosRuta.length;
+        datosGlobales.kmTotal += distancia;
+      }
+    });
+  });
+
+  // Actualizar mapa
+  dibujarRecorrido(puntosParaMapa);
+  
+  // Guardar localmente
+  guardarDatosLocales();
+}
+
+// =============================================
+// CALCULAR DISTANCIA
+// =============================================
+function calcularDistanciaTotal(puntos) {
+  let distancia = 0;
+  for (let i = 1; i < puntos.length; i++) {
+    distancia += calcularDistancia(
+      puntos[i-1].lat, puntos[i-1].lng,
+      puntos[i].lat, puntos[i].lng
+    );
+  }
+  return distancia;
+}
+
+function calcularDistancia(lat1, lon1, lat2, lon2) {
+  const R = 6371;
+  const dLat = (lat2 - lat1) * Math.PI / 180;
+  const dLon = (lon2 - lon1) * Math.PI / 180;
+  const a = Math.sin(dLat/2) * Math.sin(dLat/2) +
+            Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
+            Math.sin(dLon/2) * Math.sin(dLon/2);
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+  return R * c;
+}
+
+// =============================================
+// ACTUALIZAR DASHBOARD
+// =============================================
+function actualizarDashboard() {
+  document.getElementById('totalRecicladores').textContent = datosGlobales.recicladores.size;
+  document.getElementById('totalRutas').textContent = datosGlobales.rutas.length;
+  document.getElementById('totalPuntosGPS').textContent = datosGlobales.puntosTotal.toLocaleString();
+  document.getElementById('kmTotales').textContent = datosGlobales.kmTotal.toFixed(2) + ' km';
+  document.getElementById('puntosCapturados').textContent = `Puntos capturados: ${datosGlobales.puntosTotal}`;
+  document.getElementById('distanciaActual').textContent = datosGlobales.kmTotal.toFixed(2) + ' km';
+
+  // Lista de recicladores
+  const listaHtml = Array.from(datosGlobales.recicladores).map(cedula => {
+    const rutasReciclador = datosGlobales.rutas.filter(r => r.cedula === cedula);
+    return `
+      <div class="p-4 bg-green-50 rounded-lg border border-green-200">
+        <div class="font-bold text-green-900">Cédula: ${cedula}</div>
+        <div class="text-sm text-green-700">Rutas: ${rutasReciclador.length}</div>
+      </div>
+    `;
+  }).join('');
+  
+  document.getElementById('listaRecicladores').innerHTML = listaHtml || '<p class="text-gray-500">No hay recicladores activos</p>';
+
+  // Actualizar tabla de rutas
+  actualizarTablaRutas();
+  
+  // Actualizar selects
+  actualizarSelectsRutas();
+}
+
+// =============================================
+// MAPA
+// =============================================
+function dibujarRecorrido(puntos) {
+  if (polyline) polyline.setMap(null);
+  markers.forEach(m => m.setMap(null));
+  markers = [];
+
+  if (puntos.length === 0) return;
+
+  polyline = new google.maps.Polyline({
+    path: puntos,
+    geodesic: true,
+    strokeColor: "#2196F3",
+    strokeOpacity: 0.9,
+    strokeWeight: 5,
+  });
+
+  polyline.setMap(map);
+
+  const inicio = new google.maps.Marker({
+    position: puntos[0],
+    map: map,
+    label: "I",
+    title: "Inicio"
+  });
+
+  const fin = new google.maps.Marker({
+    position: puntos[puntos.length - 1],
+    map: map,
+    label: "F",
+    title: "Última posición"
+  });
+
+  markers.push(inicio, fin);
+  map.setCenter(puntos[puntos.length - 1]);
+}
+
+function actualizarMapa() {
+  // Implementación adicional si necesitas actualizar el mapa
+}
+
+// =============================================
+// TABLA DE RUTAS
+// =============================================
+function actualizarTablaRutas() {
+  const tbody = document.getElementById('tablaRutasBody');
+  
+  if (datosGlobales.rutas.length === 0) {
+    tbody.innerHTML = '<tr><td colspan="6" class="text-center py-8 text-gray-500">No hay rutas registradas</td></tr>';
+    return;
+  }
+
+  tbody.innerHTML = datosGlobales.rutas.map((ruta, index) => `
+    <tr class="border-b hover:bg-gray-50">
+      <td class="px-4 py-3">Reciclador ${index + 1}</td>
+      <td class="px-4 py-3">${ruta.cedula}</td>
+      <td class="px-4 py-3">${ruta.fecha}</td>
+      <td class="px-4 py-3">${ruta.puntos.length}</td>
+      <td class="px-4 py-3">${ruta.distancia.toFixed(2)} km</td>
+      <td class="px-4 py-3">
+        <button onclick="verRutaEnMapa(${index})" class="text-blue-600 hover:text-blue-800 mr-2">
+          🗺️ Ver
+        </button>
+        <button onclick="generarReporteRuta(${index})" class="text-green-600 hover:text-green-800">
+          📄 PDF
+        </button>
+      </td>
+    </tr>
+  `).join('');
+}
+
+window.verRutaEnMapa = function(index) {
+  const ruta = datosGlobales.rutas[index];
+  dibujarRecorrido(ruta.puntos);
+  cambiarTab('seguimiento');
+};
+
+window.generarReporteRuta = function(index) {
+  const ruta = datosGlobales.rutas[index];
+  generarPDFRuta(ruta);
+};
+
+// =============================================
+// SELECTS
+// =============================================
+function actualizarSelectsRutas() {
+  const select = document.getElementById('selectRutaReporte');
+  select.innerHTML = '<option value="">Selecciona una ruta...</option>';
+  
+  datosGlobales.rutas.forEach((ruta, index) => {
+    select.innerHTML += `<option value="${index}">Cédula ${ruta.cedula} - ${ruta.fecha} (${ruta.distancia.toFixed(2)} km)</option>`;
+  });
+}
+
+// =============================================
+// GENERAR PDF
+// =============================================
+window.generarReportePDF = function() {
+  const selectIndex = document.getElementById('selectRutaReporte').value;
+  if (!selectIndex) {
+    alert('Selecciona una ruta primero');
+    return;
+  }
+  const ruta = datosGlobales.rutas[parseInt(selectIndex)];
+  generarPDFRuta(ruta);
+};
+
+// =============================================
+// PDF PROFESIONAL (estilo certificado oficial)
+// =============================================
+function generarPDFProfesional(doc, datos) {
+  const pw = doc.internal.pageSize.getWidth();
+  const ph = doc.internal.pageSize.getHeight();
+
+  // --- Fondo blanco limpio ---
+  doc.setFillColor(255, 255, 255);
+  doc.rect(0, 0, pw, ph, 'F');
+
+  // --- Borde exterior doble ---
+  doc.setDrawColor(34, 139, 34);
+  doc.setLineWidth(3);
+  doc.rect(8, 8, pw - 16, ph - 16);
+  doc.setLineWidth(0.8);
+  doc.setDrawColor(100, 180, 100);
+  doc.rect(11, 11, pw - 22, ph - 22);
+
+  // --- Banda superior verde oscuro ---
+  doc.setFillColor(20, 83, 45);
+  doc.rect(8, 8, pw - 16, 32, 'F');
+
+  // --- Título empresa en banda ---
+  doc.setTextColor(255, 255, 255);
+  doc.setFontSize(18);
+  doc.setFont('helvetica', 'bold');
+  doc.text('REDECOL E.S.P', pw / 2, 20, { align: 'center' });
+  doc.setFontSize(9);
+  doc.setFont('helvetica', 'normal');
+  doc.text('Sistema de Control Operativo GPS — Decreto MVCT 1381 de 2024', pw / 2, 29, { align: 'center' });
+
+  // --- Línea decorativa verde claro ---
+  doc.setFillColor(134, 239, 172);
+  doc.rect(8, 40, pw - 16, 3, 'F');
+
+  // --- Subtítulo reporte ---
+  doc.setTextColor(20, 83, 45);
+  doc.setFontSize(13);
+  doc.setFont('helvetica', 'bold');
+  doc.text(datos.titulo || 'REPORTE OPERATIVO DIARIO DE RECORRIDO', pw / 2, 53, { align: 'center' });
+
+  // --- Código y fecha generación ---
+  doc.setFontSize(8);
+  doc.setFont('helvetica', 'normal');
+  doc.setTextColor(100, 100, 100);
+  doc.text(`Código: ${datos.codigo}`, pw / 2, 60, { align: 'center' });
+  doc.text(`Generado: ${new Date().toLocaleString('es-CO', { dateStyle: 'long', timeStyle: 'short' })}`, pw / 2, 66, { align: 'center' });
+
+  // --- Separador ---
+  doc.setDrawColor(200, 230, 200);
+  doc.setLineWidth(0.5);
+  doc.line(20, 70, pw - 20, 70);
+
+  // --- Sección DATOS DEL RECICLADOR ---
+  let y = 80;
+  doc.setFillColor(240, 253, 244);
+  doc.roundedRect(14, y - 6, pw - 28, 42, 3, 3, 'F');
+  doc.setDrawColor(134, 239, 172);
+  doc.setLineWidth(0.5);
+  doc.roundedRect(14, y - 6, pw - 28, 42, 3, 3, 'S');
+
+  doc.setTextColor(20, 83, 45);
+  doc.setFontSize(10);
+  doc.setFont('helvetica', 'bold');
+  doc.text('DATOS DEL RECICLADOR', 20, y + 1);
+
+  doc.setDrawColor(34, 139, 34);
+  doc.setLineWidth(0.4);
+  doc.line(20, y + 4, pw - 20, y + 4);
+
+  doc.setFont('helvetica', 'normal');
+  doc.setTextColor(30, 30, 30);
+  doc.setFontSize(10);
+  const col2 = pw / 2 + 5;
+  doc.text(`Nombre:`, 22, y + 14);
+  doc.setFont('helvetica', 'bold');
+  doc.text(`${datos.nombre}`, 52, y + 14);
+  doc.setFont('helvetica', 'normal');
+  doc.text(`Cédula:`, 22, y + 23);
+  doc.setFont('helvetica', 'bold');
+  doc.text(`${datos.cedula}`, 52, y + 23);
+  doc.setFont('helvetica', 'normal');
+  doc.text(`Fecha de prestación del servicio:`, col2, y + 14);
+  doc.setFont('helvetica', 'bold');
+  doc.text(`${datos.fechaServicio}`, col2 + 68, y + 14);
+
+  // --- Sección ESTADÍSTICAS ---
+  y += 52;
+  doc.setFillColor(240, 253, 244);
+  doc.roundedRect(14, y - 6, pw - 28, 52, 3, 3, 'F');
+  doc.setDrawColor(134, 239, 172);
+  doc.roundedRect(14, y - 6, pw - 28, 52, 3, 3, 'S');
+
+  doc.setTextColor(20, 83, 45);
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(10);
+  doc.text('ESTADÍSTICAS DEL RECORRIDO', 20, y + 1);
+  doc.setDrawColor(34, 139, 34);
+  doc.line(20, y + 4, pw - 20, y + 4);
+
+  const stats = [
+    ['Kilómetros recorridos', `${datos.km} km`],
+    ['Tiempo total', `${datos.tiempo} horas`],
+    ['Velocidad promedio', `${datos.velocidad} km/h`],
+    ['Puntos GPS registrados', `${datos.puntos} puntos`],
+  ];
+
+  doc.setTextColor(30, 30, 30);
+  stats.forEach(([label, value], i) => {
+    const sx = i < 2 ? 22 : col2;
+    const sy = y + 16 + (i % 2) * 18;
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(9);
+    doc.text(label, sx, sy);
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(11);
+    doc.text(value, sx, sy + 7);
+  });
+
+  // --- Sección SUPERVISOR ---
+  y += 63;
+  doc.setFillColor(249, 250, 251);
+  doc.roundedRect(14, y - 6, pw - 28, 50, 3, 3, 'F');
+  doc.setDrawColor(200, 200, 200);
+  doc.roundedRect(14, y - 6, pw - 28, 50, 3, 3, 'S');
+
+  doc.setTextColor(20, 83, 45);
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(10);
+  doc.text('SUPERVISOR OPERATIVO', 20, y + 1);
+  doc.setDrawColor(180, 180, 180);
+  doc.line(20, y + 4, pw - 20, y + 4);
+
+  doc.setTextColor(50, 50, 50);
+  doc.setFont('helvetica', 'normal');
+  doc.setFontSize(10);
+
+  [['Nombre:', y + 16], ['Firma:', y + 28], ['Cargo:', y + 40]].forEach(([label, ly]) => {
+    doc.text(label, 22, ly);
+    doc.setDrawColor(150, 150, 150);
+    doc.setLineWidth(0.3);
+    doc.line(45, ly, pw - 20, ly);
+  });
+
+  // --- Pie de página ---
+  doc.setFillColor(20, 83, 45);
+  doc.rect(8, ph - 22, pw - 16, 14, 'F');
+  doc.setTextColor(200, 240, 200);
+  doc.setFontSize(7.5);
+  doc.setFont('helvetica', 'italic');
+  doc.text('Documento generado automáticamente por el Sistema de Control Operativo GPS — REDECOL E.S.P', pw / 2, ph - 16, { align: 'center' });
+  doc.text(`${datos.codigo} | ${new Date().toLocaleString('es-CO')}`, pw / 2, ph - 10, { align: 'center' });
+}
+
+function generarPDFRuta(ruta) {
+  const { jsPDF } = window.jspdf;
+  const doc = new jsPDF({ unit: 'mm', format: 'a4' });
+
+  const tiempoHoras = ruta.puntos.length > 1
+    ? ((ruta.puntos[ruta.puntos.length-1].timestamp - ruta.puntos[0].timestamp) / 3600000).toFixed(2)
+    : '0.00';
+  const velocidad = tiempoHoras > 0 ? (ruta.distancia / tiempoHoras).toFixed(2) : '0.00';
+  const codigo = `REP-${Date.now()}`;
+
+  generarPDFProfesional(doc, {
+    titulo: 'REPORTE OPERATIVO DIARIO DE RECORRIDO',
+    codigo,
+    nombre: ruta.nombre || `Reciclador ${ruta.cedula}`,
+    cedula: ruta.cedula,
+    fechaServicio: ruta.fecha,
+    km: ruta.distancia.toFixed(2),
+    tiempo: tiempoHoras,
+    velocidad,
+    puntos: ruta.puntos.length
+  });
+
+  doc.save(`REPORTE_REDECOL_${ruta.cedula}_${ruta.fecha}.pdf`);
+}
+
+window.generarReporteConsolidado = function() {
+  const { jsPDF } = window.jspdf;
+  const doc = new jsPDF({ unit: 'mm', format: 'a4' });
+  const pw = doc.internal.pageSize.getWidth();
+  const ph = doc.internal.pageSize.getHeight();
+
+  // Fondo y borde
+  doc.setFillColor(255, 255, 255);
+  doc.rect(0, 0, pw, ph, 'F');
+  doc.setDrawColor(34, 139, 34);
+  doc.setLineWidth(3);
+  doc.rect(8, 8, pw - 16, ph - 16);
+  doc.setLineWidth(0.8);
+  doc.setDrawColor(100, 180, 100);
+  doc.rect(11, 11, pw - 22, ph - 22);
+
+  doc.setFillColor(20, 83, 45);
+  doc.rect(8, 8, pw - 16, 32, 'F');
+  doc.setTextColor(255, 255, 255);
+  doc.setFontSize(18);
+  doc.setFont('helvetica', 'bold');
+  doc.text('REDECOL E.S.P', pw / 2, 20, { align: 'center' });
+  doc.setFontSize(9);
+  doc.setFont('helvetica', 'normal');
+  doc.text('REPORTE CONSOLIDADO — TODAS LAS RUTAS', pw / 2, 29, { align: 'center' });
+
+  doc.setFillColor(134, 239, 172);
+  doc.rect(8, 40, pw - 16, 3, 'F');
+
+  doc.setTextColor(20, 83, 45);
+  doc.setFontSize(10);
+  doc.setFont('helvetica', 'normal');
+  doc.text(`Generado: ${new Date().toLocaleString('es-CO')}`, pw / 2, 52, { align: 'center' });
+
+  let y = 65;
+  const stats = [
+    ['Total Recicladores', datosGlobales.recicladores.size],
+    ['Total Rutas', datosGlobales.rutas.length],
+    ['Total Puntos GPS', datosGlobales.puntosTotal],
+    ['Total Kilómetros', `${datosGlobales.kmTotal.toFixed(2)} km`],
+  ];
+
+  stats.forEach(([label, value]) => {
+    doc.setFillColor(240, 253, 244);
+    doc.roundedRect(20, y, pw - 40, 14, 2, 2, 'F');
+    doc.setTextColor(30, 30, 30);
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(10);
+    doc.text(label, 26, y + 9);
+    doc.setFont('helvetica', 'bold');
+    doc.text(String(value), pw - 26, y + 9, { align: 'right' });
+    y += 18;
+  });
+
+  doc.setFillColor(20, 83, 45);
+  doc.rect(8, ph - 22, pw - 16, 14, 'F');
+  doc.setTextColor(200, 240, 200);
+  doc.setFontSize(7.5);
+  doc.setFont('helvetica', 'italic');
+  doc.text('Documento generado automáticamente — Sistema de Control Operativo GPS — REDECOL E.S.P', pw / 2, ph - 14, { align: 'center' });
+
+  doc.save(`REPORTE_CONSOLIDADO_REDECOL_${new Date().toISOString().split('T')[0]}.pdf`);
+};
+
+// =============================================
+// IMPORTAR CSV
+// =============================================
+let datosCSVImportados = null;
+
+function handleDrop(e) {
+  e.preventDefault();
+  document.getElementById('dropZone').classList.remove('border-blue-500', 'bg-blue-100');
+  const file = e.dataTransfer.files[0];
+  if (file && file.name.endsWith('.csv')) procesarArchivoCSV(file);
+  else alert('Por favor sube un archivo .csv');
+}
+
+window.importarCSV = function(input) {
+  const file = input.files[0];
+  if (file) procesarArchivoCSV(file);
+};
+
+function procesarArchivoCSV(file) {
+  const reader = new FileReader();
+  reader.onload = function(e) {
+    const text = e.target.result;
+    const lineas = text.trim().split('\n');
+    const header = lineas[0].split(',').map(h => h.trim().toLowerCase());
+
+    const iNombre = header.indexOf('nombre');
+    const iCedula = header.indexOf('cedula');
+    const iLat = header.indexOf('latitud');
+    const iLng = header.indexOf('longitud');
+    const iTime = header.indexOf('timestamp');
+
+    if (iLat < 0 || iLng < 0) {
+      alert('El CSV no tiene las columnas esperadas (Latitud, Longitud).');
+      return;
+    }
+
+    const puntos = [];
+    for (let i = 1; i < lineas.length; i++) {
+      const cols = lineas[i].split(',');
+      if (cols.length < 3) continue;
+      puntos.push({
+        nombre: iNombre >= 0 ? cols[iNombre].trim() : 'Desconocido',
+        cedula: iCedula >= 0 ? cols[iCedula].trim() : 'N/A',
+        lat: parseFloat(cols[iLat]),
+        lng: parseFloat(cols[iLng]),
+        timestamp: iTime >= 0 ? parseInt(cols[iTime]) : Date.now()
+      });
+    }
+
+    if (puntos.length === 0) { alert('No se encontraron puntos válidos.'); return; }
+
+    // Agrupar por cédula
+    const porCedula = {};
+    puntos.forEach(p => {
+      if (!porCedula[p.cedula]) porCedula[p.cedula] = { nombre: p.nombre, puntos: [] };
+      porCedula[p.cedula].puntos.push(p);
+    });
+
+    // Calcular estadísticas
+    let totalKm = 0;
+    const rutas = Object.entries(porCedula).map(([cedula, data]) => {
+      const pts = data.puntos.sort((a, b) => a.timestamp - b.timestamp);
+      let dist = 0;
+      for (let i = 1; i < pts.length; i++) {
+        dist += calcularDistancia(pts[i-1].lat, pts[i-1].lng, pts[i].lat, pts[i].lng);
+      }
+      const tInicio = pts[0].timestamp;
+      const tFin = pts[pts.length - 1].timestamp;
+      const tiempoH = ((tFin - tInicio) / 3600000).toFixed(2);
+      const velocidad = tiempoH > 0 ? (dist / tiempoH).toFixed(2) : '0.00';
+      totalKm += dist;
+      return { cedula, nombre: data.nombre, puntos: pts, distancia: dist, tiempoH, velocidad };
+    });
+
+    datosCSVImportados = { rutas, totalKm, archivo: file.name };
+    mostrarAnalisisCSV(datosCSVImportados);
+  };
+  reader.readAsText(file);
+}
+
+function mostrarAnalisisCSV(datos) {
+  const statsEl = document.getElementById('statsCSV');
+  const detalleEl = document.getElementById('detalleRutasCSV');
+  const divCSV = document.getElementById('analisisCSV');
+
+  const totalPuntos = datos.rutas.reduce((s, r) => s + r.puntos.length, 0);
+  statsEl.innerHTML = [
+    ['Recicladores', datos.rutas.length, 'bg-green-100 text-green-900'],
+    ['Rutas', datos.rutas.length, 'bg-blue-100 text-blue-900'],
+    ['Puntos GPS', totalPuntos, 'bg-purple-100 text-purple-900'],
+    ['Total km', datos.totalKm.toFixed(2) + ' km', 'bg-orange-100 text-orange-900'],
+  ].map(([label, val, cls]) => `
+    <div class="${cls} p-4 rounded-xl text-center">
+      <div class="text-2xl font-bold">${val}</div>
+      <div class="text-xs font-semibold mt-1">${label}</div>
+    </div>
+  `).join('');
+
+  detalleEl.innerHTML = datos.rutas.map((r, i) => {
+    const fechaInicio = new Date(r.puntos[0].timestamp).toLocaleString('es-CO');
+    return `
+    <div class="border border-green-200 rounded-lg p-4 bg-green-50">
+      <div class="flex justify-between items-start flex-wrap gap-2">
+        <div>
+          <div class="font-bold text-green-900">${r.nombre} — <span class="text-sm font-normal text-gray-600">CC: ${r.cedula}</span></div>
+          <div class="text-sm text-gray-600 mt-1">📅 ${fechaInicio} · 📍 ${r.puntos.length} pts · 🛣️ ${r.distancia.toFixed(2)} km · ⏱️ ${r.tiempoH} h · 🚴 ${r.velocidad} km/h</div>
+        </div>
+        <button onclick="generarCertificadoRutaCSV(${i})" class="px-4 py-2 bg-blue-600 text-white text-sm rounded-lg hover:bg-blue-700 font-semibold">
+          🏅 Certificado PDF
+        </button>
+      </div>
+    </div>`;
+  }).join('');
+
+  divCSV.classList.remove('hidden');
+}
+
+window.generarCertificadoRutaCSV = function(index) {
+  if (!datosCSVImportados) return;
+  const { jsPDF } = window.jspdf;
+  const doc = new jsPDF({ unit: 'mm', format: 'a4' });
+  const r = datosCSVImportados.rutas[index];
+  const fechaServicio = new Date(r.puntos[0].timestamp).toLocaleDateString('es-CO');
+  const codigo = `REP-${r.puntos[0].timestamp}`;
+
+  generarPDFProfesional(doc, {
+    titulo: 'REPORTE OPERATIVO DIARIO DE RECORRIDO',
+    codigo,
+    nombre: r.nombre,
+    cedula: r.cedula,
+    fechaServicio,
+    km: r.distancia.toFixed(2),
+    tiempo: r.tiempoH,
+    velocidad: r.velocidad,
+    puntos: r.puntos.length
+  });
+
+  doc.save(`REPORTE_REDECOL_${r.cedula}_${fechaServicio.replace(/\//g, '-')}.pdf`);
+};
+
+window.generarReporteCSVPDF = function() {
+  if (!datosCSVImportados) return;
+  datosCSVImportados.rutas.forEach((r, i) => window.generarCertificadoRutaCSV(i));
+};
+
+window.generarReporteConsolidadoCSV = function() {
+  if (!datosCSVImportados) return;
+  const { jsPDF } = window.jspdf;
+  const doc = new jsPDF({ unit: 'mm', format: 'a4' });
+  const pw = doc.internal.pageSize.getWidth();
+  const ph = doc.internal.pageSize.getHeight();
+
+  doc.setFillColor(255, 255, 255);
+  doc.rect(0, 0, pw, ph, 'F');
+  doc.setDrawColor(34, 139, 34);
+  doc.setLineWidth(3);
+  doc.rect(8, 8, pw - 16, ph - 16);
+  doc.setLineWidth(0.8);
+  doc.setDrawColor(100, 180, 100);
+  doc.rect(11, 11, pw - 22, ph - 22);
+
+  doc.setFillColor(20, 83, 45);
+  doc.rect(8, 8, pw - 16, 32, 'F');
+  doc.setTextColor(255, 255, 255);
+  doc.setFontSize(18);
+  doc.setFont('helvetica', 'bold');
+  doc.text('REDECOL E.S.P', pw / 2, 20, { align: 'center' });
+  doc.setFontSize(9);
+  doc.setFont('helvetica', 'normal');
+  doc.text('REPORTE CONSOLIDADO — ANÁLISIS DE RUTAS IMPORTADAS', pw / 2, 29, { align: 'center' });
+
+  doc.setFillColor(134, 239, 172);
+  doc.rect(8, 40, pw - 16, 3, 'F');
+
+  doc.setTextColor(20, 83, 45);
+  doc.setFontSize(10);
+  doc.text(`Generado: ${new Date().toLocaleString('es-CO')}`, pw / 2, 52, { align: 'center' });
+  doc.setFontSize(8.5);
+  doc.setTextColor(100, 100, 100);
+  doc.text(`Archivo fuente: ${datosCSVImportados.archivo}`, pw / 2, 59, { align: 'center' });
+
+  let y = 70;
+  const totalPuntos = datosCSVImportados.rutas.reduce((s, r) => s + r.puntos.length, 0);
+
+  [
+    ['Total Recicladores', datosCSVImportados.rutas.length],
+    ['Total Rutas', datosCSVImportados.rutas.length],
+    ['Total Puntos GPS', totalPuntos],
+    ['Total Kilómetros', `${datosCSVImportados.totalKm.toFixed(2)} km`],
+  ].forEach(([label, value]) => {
+    doc.setFillColor(240, 253, 244);
+    doc.roundedRect(20, y, pw - 40, 14, 2, 2, 'F');
+    doc.setTextColor(30, 30, 30);
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(10);
+    doc.text(label, 26, y + 9);
+    doc.setFont('helvetica', 'bold');
+    doc.text(String(value), pw - 26, y + 9, { align: 'right' });
+    y += 18;
+  });
+
+  y += 6;
+  doc.setTextColor(20, 83, 45);
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(10);
+  doc.text('DETALLE POR RECICLADOR', 20, y);
+  doc.setDrawColor(34, 139, 34);
+  doc.setLineWidth(0.4);
+  doc.line(20, y + 3, pw - 20, y + 3);
+  y += 10;
+
+  datosCSVImportados.rutas.forEach(r => {
+    if (y > ph - 35) return;
+    doc.setFillColor(248, 254, 248);
+    doc.roundedRect(20, y - 1, pw - 40, 20, 2, 2, 'F');
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(9.5);
+    doc.setTextColor(20, 83, 45);
+    doc.text(`${r.nombre}  —  CC: ${r.cedula}`, 24, y + 7);
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(8.5);
+    doc.setTextColor(60, 60, 60);
+    doc.text(`${r.puntos.length} puntos GPS  ·  ${r.distancia.toFixed(2)} km  ·  ${r.tiempoH} h  ·  ${r.velocidad} km/h`, 24, y + 14);
+    y += 24;
+  });
+
+  doc.setFillColor(20, 83, 45);
+  doc.rect(8, ph - 22, pw - 16, 14, 'F');
+  doc.setTextColor(200, 240, 200);
+  doc.setFontSize(7.5);
+  doc.setFont('helvetica', 'italic');
+  doc.text('Documento generado automáticamente — Sistema de Control Operativo GPS — REDECOL E.S.P', pw / 2, ph - 14, { align: 'center' });
+
+  doc.save(`REPORTE_CONSOLIDADO_CSV_REDECOL_${new Date().toISOString().split('T')[0]}.pdf`);
+};
+
+// =============================================
+// EXPORTAR
+// =============================================
+window.exportarJSON = function() {
+  const dataStr = JSON.stringify(datosGlobales.rutas, null, 2);
+  descargarArchivo(dataStr, `REDECOL_datos_${new Date().toISOString().split('T')[0]}.json`, 'application/json');
+};
+
+window.exportarCSV = function() {
+  let csv = 'Cedula,Fecha,Puntos GPS,Distancia (km)\n';
+  datosGlobales.rutas.forEach(ruta => {
+    csv += `${ruta.cedula},${ruta.fecha},${ruta.puntos.length},${ruta.distancia.toFixed(2)}\n`;
+  });
+  descargarArchivo(csv, `REDECOL_datos_${new Date().toISOString().split('T')[0]}.csv`, 'text/csv');
+};
+
+function descargarArchivo(contenido, nombre, tipo) {
+  const blob = new Blob([contenido], { type: tipo });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement('a');
+  link.href = url;
+  link.download = nombre;
+  link.click();
+  URL.revokeObjectURL(url);
+}
+
+// =============================================
+// ALMACENAMIENTO LOCAL
+// =============================================
+function guardarDatosLocales() {
+  localStorage.setItem('redecol_datos', JSON.stringify({
+    rutas: datosGlobales.rutas,
+    ultimaActualizacion: new Date().toISOString()
+  }));
+}
+
+function cargarDatosLocales() {
+  const data = localStorage.getItem('redecol_datos');
+  if (data) {
+    const parsed = JSON.parse(data);
+    console.log('Datos locales cargados:', parsed.rutas.length, 'rutas');
+  }
+}
+
+window.limpiarDatosLocales = function() {
+  if (confirm('¿Estás seguro de eliminar TODOS los datos locales?')) {
+    localStorage.removeItem('redecol_datos');
+    alert('✓ Datos locales eliminados');
+  }
+};
+
+// =============================================
+// CAMBIAR TABS
+// =============================================
+window.cambiarTab = function(nombre) {
+  document.querySelectorAll('.tab-btn').forEach(btn => {
+    btn.classList.remove('border-green-600');
+    btn.classList.add('border-transparent');
+  });
+  document.querySelectorAll('.tab-content').forEach(content => {
+    content.classList.remove('active');
+  });
+  
+  document.getElementById(`tab-${nombre}`).classList.remove('border-transparent');
+  document.getElementById(`tab-${nombre}`).classList.add('border-green-600');
+  document.getElementById(`content-${nombre}`).classList.add('active');
+};
+
+window.filtrarRutas = function() {
+  alert('Función de filtrado implementada. Puedes agregar lógica personalizada aquí.');
+};
+
+window.cargarTodasLasRutas = function() {
+  actualizarTablaRutas();
+};
+
+</script>
+
+</body>
+</html>
